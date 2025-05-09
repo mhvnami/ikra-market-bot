@@ -3,7 +3,7 @@ import logging
 import os
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import ParseMode
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton,BotCommand, BotCommandScopeDefault, MenuButtonCommands 
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, BotCommand, BotCommandScopeDefault, MenuButtonCommands 
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "1780044773"))  
+ADMIN_ID = int(os.getenv("ADMIN_ID", "1780044773"))
 
 bot = Bot(
     token=BOT_TOKEN,
@@ -24,13 +24,13 @@ logging.basicConfig(level=logging.INFO)
 
 # ---- FSM состояния ----
 class OrderStates(StatesGroup):
-    choosing = State()
-    quantity = State()
-    add_more = State()
-    collecting_name = State()
-    collecting_phone = State()
-    collecting_address = State()
-    waiting_payment = State()
+    choosing = State()  # Выбор товара
+    quantity = State()  # Ввод количества
+    add_more = State()  # Добавить еще товар
+    collecting_name = State()  # Ввод ФИО
+    collecting_phone = State()  # Ввод телефона
+    collecting_address = State()  # Ввод адреса
+    waiting_payment = State()  # Ожидание оплаты
 
 # ---- Кнопки ----
 def main_menu():
@@ -65,7 +65,7 @@ def info_menu():
 
 # ---- Обработчики ----
 
-@dp.message(F.text, F.text.in_(['/start', 'start']))
+@dp.message(F.text.in_(['/start', 'start']))
 async def start(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
@@ -78,7 +78,6 @@ async def start(message: Message, state: FSMContext):
 
 @dp.message(F.text == "ℹ️ Информация")
 async def send_info(message: Message):
-    # Отправляем текст с нужной информацией и прикрепляем клавиатуру с кнопками
     await message.answer(
         "ℹ️ <b>Информация</b>\n\n"
         "Если у вас есть вопросы — <b>пишите</b>, мы отвечаем максимально быстро!\n\n"
@@ -89,17 +88,6 @@ async def send_info(message: Message):
         reply_markup=info_menu()  # Привязываем клавиатуру с кнопками
     )
 
-def info_menu():
-    return InlineKeyboardMarkup(inline_keyboard=[  # Клавиатура с кнопками
-        [InlineKeyboardButton(text="📋 Инструкция по заказу", url="https://telegra.ph/Dobro-pozhalovat-v-magazin-Astrahanskoe-Zoloto-05-07")],
-        [InlineKeyboardButton(text="👨‍💼 Связаться с поддержкой", url="https://t.me/oh_my_nami")],
-        [InlineKeyboardButton(text="📢 Канал с отзывами", url="https://t.me/GoldAstraShop")],
-        [InlineKeyboardButton(text="📦 Оптовый заказ", url="https://t.me/oh_my_nami")],
-        [InlineKeyboardButton(text="🛒 Магазин на Авито", url="https://www.avito.ru/brands/i151719409?src=sharing")]
-    ])
-
-
-
 @dp.message(F.text == "🛍 Оформить заказ")
 async def choose_product(message: Message, state: FSMContext):
     await state.set_state(OrderStates.choosing)
@@ -108,7 +96,7 @@ async def choose_product(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data.startswith("item_"))
 async def handle_item(call: CallbackQuery, state: FSMContext):
-    item = call.data.split("_")[1]  # Получаем ID товара из callback_data
+    item = call.data.split("_")[1]
     product_info = {
         "1": {
             "name": "🐟 <b>Икра щуки</b>",
@@ -145,15 +133,11 @@ async def handle_item(call: CallbackQuery, state: FSMContext):
         }
     }
 
-    # Проверяем, существует ли товар с таким ID
     if item in product_info:
         selected_product = product_info[item]
-        await state.update_data(selected_product=selected_product)  # Сохраняем выбранный товар в состояние
+        await state.update_data(selected_product=selected_product)
 
-        # Получаем путь к фото товара
         photo = FSInputFile(selected_product["photo"])
-        
-        # Отправляем сообщение с фото и информацией о товаре
         await call.message.answer_photo(
             photo=photo,
             caption=f"<b>{selected_product['name']}</b>\n{selected_product['desc']}\nЦена: {selected_product['price']}₽ / 0.5кг"
@@ -163,7 +147,6 @@ async def handle_item(call: CallbackQuery, state: FSMContext):
         await call.answer()
 
     else:
-        # Если товар не найден, отправляем сообщение об ошибке
         await call.message.answer("❗️Товар не найден.")
 
 @dp.message(OrderStates.quantity)
@@ -171,10 +154,10 @@ async def process_quantity(message: Message, state: FSMContext):
     try:
         qty = int(message.text.strip())
         data = await state.get_data()
-        product = data["selected_product"]  # Извлекаем данные о выбранном товаре
+        product = data["selected_product"]
         weight = qty * 0.5
         new_item = {
-            "name": product["name"],  # Получаем имя товара
+            "name": product["name"],
             "qty": qty,
             "weight": weight,
             "sum": product["price"] * qty
@@ -193,7 +176,6 @@ async def process_quantity(message: Message, state: FSMContext):
         await state.set_state(OrderStates.add_more)
     except ValueError:
         await message.answer("Введите число — количество банок.")
-
 
 @dp.callback_query(F.data == "add_more")
 async def add_more_items(call: CallbackQuery, state: FSMContext):
