@@ -299,11 +299,27 @@ async def on_startup(dispatcher):
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
         
 
-# ---- Запуск бота ----
+# --- Запуск бота ---
+
+async def on_startup():
+    # Установка меню команд
+    await bot.set_my_commands(
+        commands=[
+            BotCommand(command="start", description="🔄 Перезапуск бота"),
+            BotCommand(command="info", description="ℹ️ Информация")
+        ],
+        scope=BotCommandScopeDefault()
+    )
+    # Включение постоянной кнопки меню
+    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+
 async def main():
+    await on_startup()
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
-if __name__ == '__main__':
-    dp.run_polling(bot, on_startup=on_startup)
+if __name__ == "__main__":
+    asyncio.run(main())
+
+
 
