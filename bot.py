@@ -243,6 +243,7 @@ async def pay_manual(call: CallbackQuery, state: FSMContext):
 async def receive_payment(message: Message, state: FSMContext):
     data = await state.get_data()
     if message.photo or message.document:
+        await state.update_data(user_id=message.from_user.id)
         await message.answer("✅ Чек получен. Ожидайте подтверждения.")
         admin_text = f"📦 <b>Новый заказ!</b>\n\n"
         for item in data['cart']:
@@ -280,6 +281,33 @@ async def on_startup(dispatcher):
 
     # Включение постоянной кнопки меню
     await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+@dp.message(F.text.startswith("/трек"))
+async def send_tracking_code(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("⛔️ Команда доступна только администратору.")
+        return
+
+    parts = message.text.strip().split(maxsplit=2)
+    if len(parts) < 3:
+        await message.answer("❗ Формат: /трек <user_id> <трек-номер>")
+        return
+
+    try:
+        user_id = int(parts[1])
+        tracking_number = parts[2]
+
+        await bot.send_message(
+            chat_id=user_id,
+            text=(
+                "✅ <b>Ваш заказ передан в доставку!</b>\n\n"
+                f"📦 Трек-номер для отслеживания:\n<code>{tracking_number}</code>\n\n"
+                "Вы можете отслеживать заказ через сайт СДЭК."
+            )
+        )
+        await message.answer("✅ Трек-номер отправлен пользователю.")
+
+    except Exception as e:
+        await message.answer(f"❗ Ошибка при отправке: {e}")
         
 
 # --- Запуск бота ---
