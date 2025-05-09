@@ -359,6 +359,8 @@ async def main():
 
     return app
 
+import asyncio
+
 if __name__ == "__main__":
     import asyncio
 
