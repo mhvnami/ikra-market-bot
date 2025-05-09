@@ -318,8 +318,39 @@ async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
+from aiohttp import web
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = os.getenv("WEBHOOK_URL") + WEBHOOK_PATH
+
+async def on_startup(app):
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="🔄 Перезапуск бота"),
+            BotCommand(command="info", description="ℹ️ Информация")
+        ],
+        scope=BotCommandScopeDefault()
+    )
+    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+
+async def on_shutdown(app):
+    await bot.delete_webhook()
+
+async def main():
+    app = web.Application()
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
+
+    SimpleRequestHandler(dispatcher=dp, bot=bot).register(app, path=WEBHOOK_PATH)
+    setup_application(app, dp, bot=bot)
+
+    return app
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    web.run_app(main(), host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+
 
 
 
