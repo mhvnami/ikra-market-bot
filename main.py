@@ -5,10 +5,12 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.types import BotCommand
 from dotenv import load_dotenv
 
-from handlers import router  # Импортируем router, не dp
+from handlers import router  # Подключаем маршруты
 
+# Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
@@ -19,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
-dp.include_router(router)  # Подключаем маршрутизатор
+dp.include_router(router)
 
 # Обработчик вебхука
 async def handle_webhook(request):
@@ -27,24 +29,32 @@ async def handle_webhook(request):
     await dp.feed_raw_update(bot, update)
     return web.Response(text="ok")
 
+# Проверка работоспособности
+async def health(request):
+    return web.Response(text="OK")
+
 # Настройка aiohttp
 app = web.Application()
 app.router.add_post('/webhook', handle_webhook)
-
-async def health(request):
-    return web.Response(text="OK")
 app.router.add_get('/health', health)
 
-
+# При запуске бота
 async def on_startup(app):
     await bot.set_webhook(WEBHOOK_URL)
+    # Устанавливаем команды меню
+    await bot.set_my_commands([
+        BotCommand(command="start", description="🔄 Перезапуск бота"),
+        BotCommand(command="info", description="ℹ️ Информация")
+    ])
 
+# При завершении
 async def on_cleanup(app):
     await bot.delete_webhook()
 
 app.on_startup.append(on_startup)
 app.on_cleanup.append(on_cleanup)
 
+# Запуск
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 8080))
     web.run_app(app, host='0.0.0.0', port=port)
