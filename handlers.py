@@ -5,6 +5,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton,
     ReplyKeyboardMarkup, KeyboardButton
 )
+from aiogram.filters import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from dotenv import load_dotenv
@@ -41,14 +42,13 @@ def main_menu():
 # Кнопка Информация
 def info_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📋 Инструкция по заказу", url="https://telegra.ph/Dobro-pozhalovat-v-magazin-Astrahanskoe-Zoloto-05-07")],
         [InlineKeyboardButton(text="👨‍💼 Связаться с поддержкой", url="https://t.me/oh_my_nami")],
         [InlineKeyboardButton(text="📢 Канал с отзывами", url="https://t.me/GoldAstraShop")],
         [InlineKeyboardButton(text="📦 Оптовый заказ", url="https://t.me/oh_my_nami")],
         [InlineKeyboardButton(text="🛒 Магазин на Авито", url="https://www.avito.ru/brands/i151719409?src=sharing")]
     ])
 
-@router.message(F.text.in_(['/start', 'start']))
+@router.message(Command("start"))
 async def start(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(
