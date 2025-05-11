@@ -18,17 +18,18 @@ SENDER_CITY_CODE = os.getenv("CDEK_SENDER_CODE", "44")  # Код города о
 
 router = Router()
 
+# Состояния
 class OrderStates(StatesGroup):
-    choosing = State()  # Выбор товара
-    quantity = State()  # Количество товара
-    add_more = State()  # Добавление товара в корзину
-    collecting_name = State()  # Сбор имени получателя
-    collecting_phone = State()  # Сбор номера телефона
-    collecting_address = State()  # Сбор города для доставки
-    selecting_city = State()  # Выбор города
-    selecting_pvz = State()  # Выбор пункта выдачи заказов (ПВЗ)
-    waiting_payment = State()  # Ожидание оплаты
-    confirming_order = State()  # Подтверждение заказа
+    choosing = State()
+    quantity = State()
+    add_more = State()
+    collecting_name = State()
+    collecting_phone = State()
+    collecting_address = State()
+    selecting_city = State()
+    selecting_pvz = State()
+    waiting_payment = State()
+    confirming_order = State()
 
 # Главное меню
 def main_menu():
@@ -40,7 +41,7 @@ def main_menu():
         resize_keyboard=True
     )
 
-# Кнопка Информация
+# Меню Информация
 def info_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👨‍💼 Связаться с поддержкой", url="https://t.me/oh_my_nami")],
@@ -49,6 +50,33 @@ def info_menu():
         [InlineKeyboardButton(text="🛒 Магазин на Авито", url="https://www.avito.ru/brands/i151719409?src=sharing")]
     ])
 
+# Меню выбора продуктов
+def products_menu():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🐟 Икра щуки", callback_data="item_1")],
+        [InlineKeyboardButton(text="🎨 Икра щуки крашеная", callback_data="item_2")]
+    ])
+
+# Кнопки выбора количества
+def quantity_buttons(qty: int):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="➖", callback_data=f"decrease_{qty}"),
+            InlineKeyboardButton(text=f"{qty}", callback_data="noop"),
+            InlineKeyboardButton(text="➕", callback_data=f"increase_{qty}")
+        ],
+        [InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_qty")]
+    ])
+
+# Кнопки после добавления товара
+def next_step_menu():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Добавить ещё", callback_data="add_more")],
+        [InlineKeyboardButton(text="✏️ Изменить заказ", callback_data="edit_order")],
+        [InlineKeyboardButton(text="✅ Перейти к оформлению", callback_data="proceed")]
+    ])
+
+# Команда /start
 @router.message(Command("start"))
 async def start(message: Message, state: FSMContext):
     await state.clear()
@@ -59,32 +87,31 @@ async def start(message: Message, state: FSMContext):
         "Выберите действие:", reply_markup=main_menu()
     )
 
-# Обработка команды "ℹ️ Информация"
+# Информация
 @router.message(F.text == "ℹ️ Информация")
 async def send_info(message: Message):
     await message.answer(
         "ℹ️ <b>Информация</b>\n\n"
         "Если у вас есть вопросы — <b>пишите</b>, мы отвечаем максимально быстро!\n\n"
-        "👨‍💻 Техническая поддержка: <b>@oh_my_nami\n</b>"
-        "📢 Новостной канал: \n"
-        "<b>@GoldAstraShop</b>\n"
+        "👨‍💻 Техническая поддержка: <b>@oh_my_nami</b>\n"
+        "📢 Новостной канал: <b>@GoldAstraShop</b>\n"
         "📦 Оптовые заказы (от 20 кг): <b>@oh_my_nami</b>\n\n"
-
+        
         "📌 <a href='https://telegra.ph/Dobro-pozhalovat-v-magazin-Astrahanskoe-Zoloto-05-07'>Как оформить заказ?</a>\n"
         "📌 <a href='https://t.me/c/2600077572/3'>О доставке.</a>\n"
         "📌 <a href='https://t.me/c/2600077572/4'>Доедет ли икра свежей?</a>\n\n"
         "Спасибо, что выбираете <b>Астраханское Золото</b>! 🐟💛",
-        reply_markup=info_menu()  # Отправляем клавиатуру с дополнительными ссылками
+        reply_markup=info_menu()
     )
-    
-# Обработка команды "🛍 Оформить заказ"
+
+# Оформить заказ
 @router.message(F.text == "🛍 Оформить заказ")
 async def choose_product(message: Message, state: FSMContext):
     await state.set_state(OrderStates.choosing)
     await state.update_data(cart=[], total_weight=0)
     await message.answer("Выберите икру:", reply_markup=products_menu())
 
-# Обработка выбора товара (икры)
+# Выбор товара
 @router.callback_query(F.data.startswith("item_"))
 async def handle_item(call: CallbackQuery, state: FSMContext):
     item = call.data.split("_")[1]
@@ -136,8 +163,7 @@ async def handle_item(call: CallbackQuery, state: FSMContext):
         await state.set_state(OrderStates.quantity)
     await call.answer()
 
-
-# Обработка нажатия кнопки для увеличения количества
+# Изменение количества
 @router.callback_query(F.data.startswith("increase_"))
 async def increase_quantity(call: CallbackQuery, state: FSMContext):
     qty = int(call.data.split("_")[1]) + 1
@@ -145,83 +171,80 @@ async def increase_quantity(call: CallbackQuery, state: FSMContext):
     await call.message.edit_reply_markup(reply_markup=quantity_buttons(qty))
     await call.answer()
 
-# Обработка нажатия кнопки для уменьшения количества
 @router.callback_query(F.data.startswith("decrease_"))
 async def decrease_quantity(call: CallbackQuery, state: FSMContext):
     qty = int(call.data.split("_")[1]) - 1
-    if qty < 1:
-        qty = 1
+    qty = max(qty, 1)
     await state.update_data(qty=qty)
     await call.message.edit_reply_markup(reply_markup=quantity_buttons(qty))
     await call.answer()
 
-# Подтверждение выбранного количества товара
+# Подтверждение количества
 @router.callback_query(F.data == "confirm_qty")
 async def confirm_quantity(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     product = data["selected_product"]
     qty = data["qty"]
-    product_weight = qty * 0.5  # вес одного товара (0.5 кг)
-    packaging = 0.8 if data.get("cart") == [] else 0.0  # добавляем упаковку, если корзина пустая
-    weight = product_weight + packaging  # общий вес товара
+    product_weight = qty * 0.5
+    packaging = 0.8 if not data.get("cart") else 0.0
+    weight = product_weight + packaging
     new_item = {
         "name": product["name"],
         "qty": qty,
         "weight": weight,
-        "sum": product["price"] * qty  # сумма за товар
+        "sum": product["price"] * qty
     }
     cart = data.get("cart", [])
     cart.append(new_item)
-    total_weight = sum(item['weight'] for item in cart)  # общий вес всех товаров
-    await state.update_data(cart=cart, total_weight=total_weight)  # обновляем данные
+    total_weight = sum(item['weight'] for item in cart)
+    await state.update_data(cart=cart, total_weight=total_weight)
     await call.message.answer(
         f"✅ Добавлено: {product['name']} — {qty} шт. (~{weight:.1f} кг)",
-        reply_markup=next_step_menu()  # предлагаем следующие действия
+        reply_markup=next_step_menu()
     )
-    await state.set_state(OrderStates.add_more)  # переходим в состояние добавления других товаров
+    await state.set_state(OrderStates.add_more)
     await call.answer()
 
-# Добавление дополнительных товаров
+# Повторный выбор товара
 @router.callback_query(F.data == "add_more")
 async def add_more_items(call: CallbackQuery, state: FSMContext):
-    await state.set_state(OrderStates.choosing)  # вернуться к выбору товара
-    await call.message.answer("Выберите товар:", reply_markup=products_menu())  # предложим выбор товара
+    await state.set_state(OrderStates.choosing)
+    await call.message.answer("Выберите товар:", reply_markup=products_menu())
     await call.answer()
 
-# Редактирование заказа (очистка корзины)
+# Очистка заказа
 @router.callback_query(F.data == "edit_order")
 async def edit_order(call: CallbackQuery, state: FSMContext):
-    await state.update_data(cart=[], total_weight=0)  # очищаем корзину
-    await state.set_state(OrderStates.choosing)  # возвращаемся к выбору товара
-    await call.message.answer("🧹 Заказ сброшен. Выберите товар заново:", reply_markup=products_menu())  # уведомление об очистке
+    await state.update_data(cart=[], total_weight=0)
+    await state.set_state(OrderStates.choosing)
+    await call.message.answer("🧹 Заказ сброшен. Выберите товар заново:", reply_markup=products_menu())
     await call.answer()
 
-# Оформление заказа (переход к сбору данных пользователя)
+# Перейти к оформлению
 @router.callback_query(F.data == "proceed")
 async def proceed_to_checkout(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    if data.get("total_weight", 0) < 1:  # проверка на минимальный заказ
+    if data.get("total_weight", 0) < 1:
         await call.message.answer("❗️ Минимальный заказ — от 1 кг.")
         return
-    await state.set_state(OrderStates.collecting_name)  # запросим ФИО пользователя
+    await state.set_state(OrderStates.collecting_name)
     await call.message.answer("Введите ФИО получателя:")
     await call.answer()
 
-# Сбор имени пользователя
+# Сбор данных пользователя
 @router.message(OrderStates.collecting_name)
 async def collect_name(message: Message, state: FSMContext):
-    await state.update_data(name=message.text.strip())  # сохраняем ФИО
-    await message.answer("Введите номер телефона:")  # запросим телефон
+    await state.update_data(name=message.text.strip())
+    await message.answer("Введите номер телефона:")
     await state.set_state(OrderStates.collecting_phone)
 
-# Сбор номера телефона пользователя
 @router.message(OrderStates.collecting_phone)
 async def collect_phone(message: Message, state: FSMContext):
-    await state.update_data(phone=message.text.strip())  # сохраняем телефон
-    await message.answer("Введите город доставки (для расчёта стоимости СДЭК):")  # запросим город
+    await state.update_data(phone=message.text.strip())
+    await message.answer("Введите город доставки (для расчёта стоимости СДЭК):")
     await state.set_state(OrderStates.collecting_address)
 
-# Сбор города доставки
+# Принятие чека
 @router.message(OrderStates.waiting_payment)
 async def handle_payment(message: Message, state: FSMContext):
     if not (message.photo or message.document):
@@ -231,20 +254,19 @@ async def handle_payment(message: Message, state: FSMContext):
     data = await state.get_data()
     bot = message.bot
 
-    # Сообщение админу
-    admin_chat_id = os.getenv('ADMIN_CHAT_ID')
+    admin_chat_id = os.getenv('ADMIN_CHAT_ID', ADMIN_ID)
     admin_text = (
         "📦 <b>Новый заказ!</b>\n\n"
         f"<b>Имя:</b> {data['name']}\n"
         f"<b>Телефон:</b> {data['phone']}\n"
-        f"<b>Город:</b> {data['city']}\n"
+        f"<b>Город:</b> {data.get('city', '-')}\n"
         f"<b>Код ПВЗ:</b> {data.get('pvz_code', '-')}\n"
         f"<b>Общий вес:</b> {data['total_weight']} кг\n"
-        f"<b>Доставка:</b> {data['delivery_price']} ₽\n"
-        f"<b>Сумма к оплате:</b> {data['total_price']} ₽\n\n"
+        f"<b>Доставка:</b> {data.get('delivery_price', '—')} ₽\n"
+        f"<b>Сумма к оплате:</b> {data.get('total_price', '—')} ₽\n\n"
         "<b>Заказ:</b>\n"
     )
-    for item in data["cart"]:
+    for item in data.get("cart", []):
         admin_text += f"{item['name']} — {item['qty']} шт. = {item['sum']}₽\n"
 
     await bot.send_message(admin_chat_id, admin_text)
