@@ -114,6 +114,7 @@ async def choose_product(message: Message, state: FSMContext):
 # Выбор товара
 @router.callback_query(F.data.startswith("item_"))
 async def handle_item(call: CallbackQuery, state: FSMContext):
+    await call.answer()
     item = call.data.split("_")[1]
     product_info = {
         "1": {
