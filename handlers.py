@@ -69,13 +69,15 @@ async def start(message: Message, state: FSMContext):
 async def send_info(message: Message):
     await message.answer(
         "ℹ️ <b>Информация</b>\n\n"
-        "Если есть вопросы — пишите, отвечаем быстро!\n\n"
-        "👨‍💻 Поддержка: <b>@oh_my_nami</b>\n"
-        "📢 Отзывы: <b>@GoldAstraShop</b>\n"
-        "🛒 Магазин на Авито: <b>GoldAstraShop</b>\n\n"
+        "Если у вас есть вопросы — <b>пишите</b>, мы отвечаем максимально быстро!\n\n"
+        "👨‍💻 Техническая поддержка: <b>@oh_my_nami\n</b>"
+        "📢 Новостной канал: \n"
+        "<b>@GoldAstraShop</b>\n"
+        "📦 Оптовые заказы (от 20 кг): <b>@oh_my_nami</b>\n\n"
         
         "<a href='https://t.me/c/2600077572/3'>📦 О доставке</a>\n"
         "<a href='https://t.me/c/2600077572/4'>❄️ Доедет ли икра свежей?</a>",
+        "Спасибо, что выбираете <b>Астраханское Золото</b>! 🐟💛",
         reply_markup=info_menu()
     )
 # Меню выбора продуктов
@@ -245,10 +247,14 @@ async def get_name(message: Message, state: FSMContext):
 # ——— Телефон ———
 @router.message(OrderStates.collecting_phone)
 async def get_phone(message: Message, state: FSMContext):
-    phone = message.text.strip()
+    phone = re.sub(r"[^\d+]", "", message.text.strip())  # удалим пробелы и лишние символы
     if not re.fullmatch(r"\+7\d{10}", phone):
-         await message.answer("Введите номер в формате +7XXXXXXXXXX")
-         return
+        await message.answer("Введите номер в формате +7XXXXXXXXXX")
+        return
+
+    await state.update_data(phone=phone)
+    await state.set_state(OrderStates.collecting_city)
+    await message.answer("Введите <b>название города</b>, чтобы найти ПВЗ СДЭК:")
 
     await state.update_data(phone=phone)
     await state.set_state(OrderStates.collecting_city)
