@@ -162,7 +162,6 @@ async def handle_item(call: CallbackQuery, state: FSMContext):
     await call.message.answer_photo(
         photo,
         caption=f"{selected['name']}\n<b>Цена:</b> {selected['price']}₽ / 0.5 кг\n\n{selected['desc']}",
-        parse_mode="HTML"
     )
     await call.message.answer("Выберите количество банок (по 0.5 кг):", reply_markup=quantity_buttons(1))
     await state.set_state(OrderStates.quantity)
