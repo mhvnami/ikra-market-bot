@@ -61,8 +61,7 @@ async def start(message: Message, state: FSMContext):
         "🐟 Свежая икра с доставкой по России через СДЭК.\n"
         "❗️ Минимальный заказ — от 1 кг (можно разными товарами)\n\n"
         "Выберите действие:",
-        reply_markup=main_menu(),
-        parse_mode="HTML"
+        reply_markup=main_menu()
     )
 
 # Инфо
@@ -79,8 +78,7 @@ async def send_info(message: Message):
         "<a href='https://t.me/c/2600077572/3'>📦 О доставке</a>\n"
         "<a href='https://t.me/c/2600077572/4'>❄️ Доедет ли икра свежей?</a>",
         "Спасибо, что выбираете <b>Астраханское Золото</b>! 🐟💛",
-        reply_markup=info_menu(),
-        parse_mode="HTML"
+        reply_markup=info_menu()
     )
 # Меню выбора продуктов
 def products_menu():
@@ -163,8 +161,7 @@ async def handle_item(call: CallbackQuery, state: FSMContext):
     photo = FSInputFile(selected["photo"])
     await call.message.answer_photo(
         photo,
-        caption=f"{selected['name']}\n<b>Цена:</b> {selected['price']}₽ / 0.5 кг\n\n{selected['desc']}",
-        parse_mode="HTML"
+        caption=f"{selected['name']}\n<b>Цена:</b> {selected['price']}₽ / 0.5 кг\n\n{selected['desc']}"
     )
     await call.message.answer("Выберите количество банок (по 0.5 кг):", reply_markup=quantity_buttons(1))
     await state.set_state(OrderStates.quantity)
@@ -236,7 +233,7 @@ async def edit_order(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data == "proceed")
 async def proceed_to_checkout(callback: CallbackQuery, state: FSMContext):
     await state.set_state(OrderStates.collecting_name)
-    await callback.message.answer("Введите ваше <b>ФИО</b>:", parse_mode="HTML")
+    await callback.message.answer("Введите ваше <b>ФИО</b>:")
     await callback.answer()
 
 @router.message(OrderStates.collecting_name)
@@ -244,8 +241,7 @@ async def get_name(message: Message, state: FSMContext):
     await state.update_data(name=message.text)
     await state.set_state(OrderStates.collecting_phone)
     await message.answer(
-        "Введите ваш <b>номер телефона</b>: (например, +79001234567)",
-        parse_mode="HTML"
+        "Введите ваш <b>номер телефона</b>: (например, +79001234567)"
     )
 
 # ——— Телефон ———
@@ -259,7 +255,6 @@ async def get_phone(message: Message, state: FSMContext):
     await state.update_data(phone=phone)
     await state.set_state(OrderStates.collecting_city)
     await message.answer("Введите <b>название города</b>, чтобы найти ПВЗ СДЭК:")
-    parse_mode="HTML"
 
  # ——— Ввод города и показ ПВЗ ———
 @router.message(OrderStates.collecting_city)
@@ -366,8 +361,7 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
         "<b>Переведите сумму на карту:</b>\n"
         "🔹 <b>2200 7009 7421 6722</b>\n"
         "🔹 <b>Анатолий Владимирович</b>\n\n"
-        "После оплаты отправьте <b>чек (фото или файл)</b> в этот чат.",
-        parse_mode="HTML"
+        "После оплаты отправьте <b>чек (фото или файл)</b> в этот чат."
     )
     await state.set_state(OrderStates.waiting_payment_confirmation)
     await callback.answer()
@@ -376,8 +370,7 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
 async def handle_payment(message: Message, state: FSMContext):
     if not (message.photo or message.document):
         await message.answer(
-            "❗ Пожалуйста, отправьте <b>фото</b> или <b>файл</b> с чеком.",
-            parse_mode="HTML"
+            "❗ Пожалуйста, отправьте <b>фото</b> или <b>файл</b> с чеком."
         )
         return
     
@@ -448,8 +441,7 @@ async def handle_track_number_input(message: Message, state: FSMContext):
             user_id,
             f"✅ Ваш заказ подтверждён!\n"
             f"📦 Трек-номер: <b>{track_number}</b>\n"
-            f"🚚 Отправление создано в СДЭК.",
-            parse_mode="HTML"
+            f"🚚 Отправление создано в СДЭК."
         )
         await message.answer("📨 Трек-номер отправлен покупателю, отправление создано.")
     else:
