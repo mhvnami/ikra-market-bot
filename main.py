@@ -8,12 +8,14 @@ from aiogram.enums import ParseMode
 from aiogram.types import BotCommand
 from dotenv import load_dotenv
 
-from handlers import router  # Подключаем маршруты
+from handlers import router
 
 # Загрузка переменных окружения
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+PORT = int(os.getenv("PORT", 10000))
 
 logging.basicConfig(level=logging.INFO)
 
