@@ -1,11 +1,13 @@
 import os
 from aiogram import Router, F
 from aiogram.filters import Command
+from aiogram import Bot, Dispatcher
 from aiogram.types import (
     Message, CallbackQuery, FSInputFile,
     InlineKeyboardMarkup, InlineKeyboardButton,
     ReplyKeyboardMarkup, KeyboardButton
 )
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from dotenv import load_dotenv
@@ -30,7 +32,8 @@ class OrderStates(StatesGroup):
     waiting_payment = State()
     awaiting_order_confirmation = State()
     waiting_payment_confirmation = State()
-    entering_track_number = State() 
+    entering_track_number = State()
+    confirming = State()
 
 # Главное меню
 def main_menu():
@@ -262,11 +265,24 @@ async def get_city(message: Message, state: FSMContext):
     city = message.text.strip()
 
     # Шаг 1: Получить код города
-    city_code = await get_city_code_by_name(city)  # ты можешь реализовать это
+async def get_city_code_by_name(city_name: str):
+    cdek = CDEKClient(CDEK_CLIENT_ID, CDEK_CLIENT_SECRET)
+    cities = await cdek.get_city_list(city_name)
+    if cities and isinstance(cities, list):
+        return cities[0].get("code")  # можно добавить более умный выбор
+    return None
 
+# Пример вызова внутри обработчика (например, при получении сообщения от пользователя)
+@router.message()
+async def handle_city_input(message: Message):
+    city_name = message.text.strip()
+    city_code = await get_city_code_by_name(city_name)
+    
     if not city_code:
         await message.answer("Город не найден в базе СДЭК. Попробуйте другой:")
         return
+
+    await message.answer(f"Код города СДЭК: {city_code}")
 
     # Шаг 2: Получить пункты выдачи по коду
     pvz_data = await cdek.get_pickup_points(city_code)
@@ -412,59 +428,79 @@ async def handle_payment(message: Message, state: FSMContext):
     await state.set_state(OrderStates.waiting_admin_response)
 
 # Админ нажимает Подтвердить → переходит к вводу трека
+# ——— Админ нажимает Подтвердить → переходит к вводу трека ———
 @router.callback_query(F.data.startswith("admin_confirm:"))
 async def admin_start_track_input(callback: CallbackQuery, state: FSMContext):
-    user_id = int(callback.data.split(":")[1])
+    user_id = int(callback.data.split(":", 1)[1])
     await state.update_data(confirming_user=user_id)
-    await callback.message.edit_text("✏️ Введите трек-номер для отправки покупателю:")
+    await callback.message.answer(
+        f"✏️ Введите <b>трек-номер</b> для отправки покупателю (ID: <code>{user_id}</code>):"
+    )
     await state.set_state(OrderStates.entering_track_number)
     await callback.answer()
 
-# Админ вводит трек-номер
+# ——— Отклонение заказа админом ———
+@router.callback_query(F.data.startswith("admin_reject:"))
+async def admin_reject_order(callback: CallbackQuery, bot: Bot):
+    user_id = int(callback.data.split(":", 1)[1])
+    try:
+        # Уведомляем клиента об отказе
+        await bot.send_message(
+            chat_id=user_id,
+            text="❌ Ваш заказ был отклонён. Если это ошибка — свяжитесь с поддержкой: @oh_my_nami"
+        )
+        # Меняем текст в админском сообщении
+        await callback.message.edit_text("🛑 Заказ отклонён.")
+        await callback.answer()
+    except Exception as e:
+        await callback.message.answer(f"Ошибка отправки пользователю: {e}")
+
+# ——— Админ вводит трек-номер ———
 @router.message(OrderStates.entering_track_number)
-async def handle_track_number_input(message: Message, state: FSMContext):
+async def receive_track_number(message: Message, state: FSMContext, bot: Bot):
     data = await state.get_data()
     user_id = data.get("confirming_user")
     track_number = message.text.strip()
 
-    # Создаем клиента СДЭК
+    if not user_id:
+        await message.answer("❗ Пользователь не найден. Попробуйте снова.")
+        return
+
+    # Создаем отправление через СДЭК
     cdek_client = CDEKClient()
-
-    # Получаем данные или ставим заглушки
-    sender_city_code = data.get("sender_city_code", 44)  # подставь реальные данные
-    receiver_city_code = data.get("receiver_city_code", 44)
-    receiver_address = data.get("receiver_address", "Адрес получателя")
-    receiver_name = data.get("receiver_name", "Имя Получателя")
-    receiver_phone = data.get("receiver_phone", "+79001234567")
-
-    # Создаем отправление
     shipment_response = await cdek_client.create_shipment(
-        sender_city_code=sender_city_code,
-        receiver_city_code=receiver_city_code,
-        receiver_address=receiver_address,
-        receiver_name=receiver_name,
-        receiver_phone=receiver_phone,
+        sender_city_code=data.get("sender_city_code", 44),
+        receiver_city_code=data.get("receiver_city_code", 44),
+        receiver_address=data.get("receiver_address", "Адрес получателя"),
+        receiver_name=data.get("receiver_name", "Имя Получателя"),
+        receiver_phone=data.get("receiver_phone", "+79001234567"),
         order_number=f"ORDER-{user_id}-{track_number}",
         package_weight=500
     )
-
     await cdek_client.close()
 
-    # Проверяем ответ и уведомляем пользователя
+    # В зависимости от результата уведомляем клиента и админа
     if shipment_response.get("uuid"):
-        await message.bot.send_message(
-            user_id,
-            f"✅ Ваш заказ подтверждён!\n"
-            f"📦 Трек-номер: <b>{track_number}</b>\n"
-            f"🚚 Отправление создано в СДЭК."
+        await bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"📦 <b>Ваш заказ отправлен!</b>\n"
+                f"🔢 Трек-номер: <code>{track_number}</code>\n"
+                f"📍 Адрес получения: {data.get('receiver_address')}\n\n"
+                "Спасибо за покупку! 🐟"
+            )
         )
-        await message.answer("📨 Трек-номер отправлен покупателю, отправление создано.")
+        await message.answer("✅ Трек-номер отправлен клиенту.")
     else:
-        await message.bot.send_message(
-            user_id,
-            "⚠️ Заказ подтверждён, но не удалось создать отправление. Администратор свяжется с вами."
+        await bot.send_message(
+            chat_id=user_id,
+            text="⚠️ Заказ подтверждён, но не удалось создать отправление. Администратор свяжется с вами."
         )
         await message.answer("⚠️ Ошибка при создании отправления.")
 
-    # Очистка состояния
+    # Сбрасываем состояние
     await state.clear()
+
+
+
+
