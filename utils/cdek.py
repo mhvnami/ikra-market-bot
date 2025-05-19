@@ -111,6 +111,12 @@ class CDEKClient:
             }]
         }
 
+    async def get_city_code_by_name(self, city_name: str) -> Optional[int]:
+        await self._ensure_token()
+        url = f"{BASE_URL}/location/cities"
+        headers = {"Authorization": f"Bearer {self.token}"}
+        params = {"country_codes": "RU", "city": city_name}
+
         try:
             async with self.session.post(url, headers=headers, json=payload) as response:
                 return await response.json()

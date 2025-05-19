@@ -56,6 +56,9 @@ async def on_cleanup(app):
 app.on_startup.append(on_startup)
 app.on_cleanup.append(on_cleanup)
 
+async def on_shutdown(dp):
+    await cdek.close()
+
 # Запуск
 if __name__ == '__main__':
     port = int(os.getenv("PORT", 8080))

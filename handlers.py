@@ -260,11 +260,26 @@ async def get_phone(message: Message, state: FSMContext):
 @router.message(OrderStates.collecting_city)
 async def get_city(message: Message, state: FSMContext):
     city = message.text.strip()
-    pvz_list = get_delivery_points(city)
 
-    if not pvz_list:
+    # Шаг 1: Получить код города
+    city_code = await get_city_code_by_name(city)  # ты можешь реализовать это
+
+    if not city_code:
+        await message.answer("Город не найден в базе СДЭК. Попробуйте другой:")
+        return
+
+    # Шаг 2: Получить пункты выдачи по коду
+    pvz_data = await cdek.get_pickup_points(city_code)
+
+    if not isinstance(pvz_data, list) or not pvz_data:
         await message.answer("Не удалось найти ПВЗ в этом городе. Попробуйте снова:")
         return
+
+    # Шаг 3: Отфильтровать нужные данные
+    pvz_list = [{
+        "code": p["code"],
+        "address": p["location"]["address"]
+    } for p in pvz_data if "code" in p and "location" in p and "address" in p["location"]]
 
     await state.update_data(city=city, pvz_list=pvz_list[:10])  # покажем первые 10
     keyboard = InlineKeyboardMarkup(
